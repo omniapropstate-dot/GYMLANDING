@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>GymOS · Sistema operativo de tu gimnasio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#070707; --surface:#101010;
+    --accent:#c9f23e; --accent-ink:#080808;
+    --text:#f1ede5; --text-2:#d6d2ca; --muted:#9a978f; --muted-2:#b3b0a8;
+    --border:#1c1c1c; --border-2:#2a2a2a;
+    --display:"Syne",ui-sans-serif,system-ui,sans-serif;
+    --body:"DM Sans",ui-sans-serif,system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,monospace;
+    --maxw:1240px;
+    --pad:clamp(18px,4vw,56px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--body);-webkit-font-smoothing:antialiased}
+  html{scroll-behavior:smooth}
+  body{overflow-x:hidden}
+  @media (hover:hover) and (min-width:900px){ body{cursor:none} button,a{cursor:none} }
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit;background:none;border:0}
+  ::selection{background:var(--accent);color:var(--accent-ink)}
+
+  #bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+  .aurora{
+    position:fixed;inset:-20%;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(45vw 30vw at var(--mx,50%) var(--my,30%), rgba(201,242,62,.10), transparent 60%),
+      radial-gradient(60vw 40vw at 80% calc(var(--scroll,0)*100%), rgba(201,242,62,.06), transparent 60%);
+    transition:background .15s linear;
+  }
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:60;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    opacity:.045;mix-blend-mode:overlay;
+  }
+
+  .cursor{position:fixed;left:0;top:0;z-index:80;pointer-events:none;mix-blend-mode:plus-lighter;display:none}
+  @media (hover:hover) and (min-width:900px){ .cursor{display:block} }
+  .cursor .dot{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--accent);transform:translate(-50%,-50%)}
+  .cursor .ring{position:absolute;width:34px;height:34px;border-radius:50%;border:1px solid rgba(201,242,62,.5);transform:translate(-50%,-50%);transition:transform .25s,border-color .2s,width .2s,height .2s}
+  .cursor.hover .ring{width:60px;height:60px;border-color:var(--accent);background:rgba(201,242,62,.08)}
+
+  .progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--accent);z-index:70;box-shadow:0 0 12px var(--accent);transition:width .08s linear}
+
+  /* ─── nav ─── */
+  .nav{
+    position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:55;
+    display:flex;align-items:center;gap:10px;
+    padding:7px 7px 7px 16px;border:1px solid var(--border);border-radius:999px;
+    background:rgba(10,10,10,.7);backdrop-filter:blur(14px) saturate(1.4);
+    max-width:calc(100vw - 24px)
+  }
+  .nav .logo{display:inline-flex;align-items:center;font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:-.01em}
+  .nav .logo .os{background:var(--accent);color:var(--accent-ink);padding:1px 7px;border-radius:4px;margin-left:3px}
+  .nav .div{width:1px;height:18px;background:var(--border-2);margin:0 4px}
+  .nav .links{display:flex;gap:18px;font-size:13px;color:var(--muted-2)}
+  .nav .links a:hover{color:var(--text)}
+  .nav .cta{padding:8px 14px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:500;transition:transform .2s;white-space:nowrap}
+  .nav .cta:hover{transform:translateY(-1px)}
+  @media (max-width:760px){ .nav .links,.nav .div{display:none} .nav{padding:6px 6px 6px 14px} .nav .logo{font-size:15px} }
+
+  main{position:relative;z-index:5}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 var(--pad)}
+  .eyebrow{display:inline-flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-2)}
+  .eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(201,242,62,.12),0 0 14px var(--accent)}
+  .h-display{font-family:var(--display);font-weight:700;font-size:clamp(40px,7.4vw,108px);line-height:.94;letter-spacing:-.03em;text-wrap:balance}
+  .h-section{font-family:var(--display);font-weight:700;font-size:clamp(30px,5vw,60px);line-height:.98;letter-spacing:-.025em;text-wrap:balance}
+  .lead{font-size:clamp(15px,1.5vw,18px);line-height:1.55;color:var(--text-2);max-width:60ch}
+  .accent{color:var(--accent)}
+
+  .btn{
+    position:relative;display:inline-flex;align-items:center;gap:10px;
+    padding:14px 22px;border-radius:999px;font-weight:500;font-size:15px;line-height:1;
+    transition:transform .2s ease;white-space:nowrap;
+  }
+  .btn-primary{background:var(--accent);color:var(--accent-ink)}
+  .btn-ghost{border:1px solid var(--border-2)}
+  .btn-ghost:hover{border-color:var(--text)}
+  .btn:hover{transform:translateY(-2px)}
+  .btn .arrow{transition:transform .2s}
+  .btn:hover .arrow{transform:translateX(3px)}
+
+  /* ─── hero with chat side-by-side ─── */
+  .hero{padding:110px 0 50px;position:relative}
+  @media (min-width:760px){ .hero{padding:140px 0 70px} }
+  .hero-grid{
+    display:grid;grid-template-columns:1fr;gap:36px;align-items:center
+  }
+  @media (min-width:920px){
+    .hero-grid{grid-template-columns:1.1fr .9fr;gap:56px}
+  }
+  .hero h1{margin:0}
+  .hero h1 .word{display:inline-block;overflow:hidden;vertical-align:bottom;line-height:1}
+  .hero h1 .word > span{display:inline-block;transform:translateY(110%);animation:rise 1s cubic-bezier(.2,.7,.2,1) forwards}
+  .hero h1 .word.d1>span{animation-delay:.1s}
+  .hero h1 .word.d2>span{animation-delay:.2s}
+  .hero h1 .word.d3>span{animation-delay:.3s}
+  .hero h1 .word.d4>span{animation-delay:.42s}
+  @keyframes rise{to{transform:none}}
+  .hero .pop{color:var(--accent);position:relative}
+  .hero .pop::after{content:"";position:absolute;left:0;right:0;bottom:.05em;height:.18em;background:rgba(201,242,62,.18);transform:scaleX(0);transform-origin:left;animation:swipe 1s cubic-bezier(.6,0,.1,1) .9s forwards}
+  @keyframes swipe{to{transform:scaleX(1)}}
+  .hero .sub{margin:24px 0 0;font-size:clamp(15px,1.4vw,18px);line-height:1.55;color:var(--text-2);max-width:48ch;opacity:0;animation:fadeUp .8s .9s forwards}
+  .hero .ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px;opacity:0;animation:fadeUp .8s 1.05s forwards}
+  .hero .fine{display:flex;gap:12px;align-items:center;font-family:var(--mono);font-size:11px;color:var(--muted-2);margin-top:20px;opacity:0;animation:fadeUp .8s 1.2s forwards;flex-wrap:wrap}
+  .hero .fine .dot{width:4px;height:4px;border-radius:50%;background:var(--muted)}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  /* hero chat phone */
+  .hero-phone{
+    position:relative;justify-self:center;
+    width:100%;max-width:420px;
+    border:1px solid var(--border);border-radius:24px;
+    background:linear-gradient(180deg,#0c0c0c,#080808);
+    box-shadow:0 30px 90px -40px rgba(0,0,0,.9), 0 0 60px -20px rgba(201,242,62,.18);
+    padding:16px;display:flex;flex-direction:column;
+    opacity:0;transform:translateY(20px);animation:fadeUp .9s .6s forwards
+  }
+  .hero-phone::before{
+    content:"";position:absolute;inset:-1px;border-radius:24px;padding:1px;
+    background:linear-gradient(180deg,rgba(201,242,62,.4),transparent 35%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none
+  }
+  .hero-phone-tag{
+    position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+    display:inline-flex;align-items:center;gap:6px;
+    padding:5px 11px;background:var(--accent);color:var(--accent-ink);
+    border-radius:999px;font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;
+    white-space:nowrap;z-index:2
+  }
+  .hero-phone-tag .live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent-ink);animation:blink 1.4s infinite}
+  @keyframes blink{50%{opacity:.3}}
+
+  .chat-head{display:flex;align-items:center;gap:12px;padding:6px 8px 14px;border-bottom:1px solid var(--border)}
+  .chat-avatar{width:38px;height:38px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#1c1c1c,#0a0a0a);border:1px solid var(--border-2);display:grid;place-items:center;font-family:var(--display);font-weight:700;color:var(--accent);font-size:13px;flex-shrink:0}
+  .chat-meta .name{font-weight:500;font-size:14px}
+  .chat-meta .stat-line{font-size:11px;color:var(--muted-2);font-family:var(--mono);display:flex;align-items:center;gap:6px}
+  .chat-meta .stat-line::before{content:"";width:6px;height:6px;border-radius:50%;background:#3ad07e;box-shadow:0 0 6px #3ad07e}
+
+  .chat-body{padding:16px 4px 6px;display:flex;flex-direction:column;gap:10px;min-height:380px}
+  .bubble{max-width:88%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.45}
+  .bubble.me{align-self:flex-end;background:#1f3a06;color:#eaffb3;border:1px solid #2c5709;border-bottom-right-radius:4px}
+  .bubble.bot{align-self:flex-start;background:#161616;border:1px solid var(--border-2);border-bottom-left-radius:4px;color:var(--text-2)}
+  .bubble.alert{border-color:rgba(201,242,62,.35);background:linear-gradient(180deg,#171c08,#101204);box-shadow:0 0 30px -10px rgba(201,242,62,.4)}
+  .bubble .label{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .bubble .label::before{content:"◆"}
+  .bubble strong{color:var(--text);font-weight:500}
+  .bubble .row{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:12px;padding:2px 0;color:var(--text-2)}
+  .bubble .row b{color:var(--text);font-weight:500}
+  .bubble .meta-line{font-size:11px;color:var(--muted-2);margin-top:6px;font-family:var(--mono)}
+  .typing{align-self:flex-start;display:inline-flex;gap:4px;padding:12px 14px;background:#141414;border:1px solid var(--border-2);border-radius:14px;border-bottom-left-radius:4px}
+  .typing span{width:6px;height:6px;background:var(--muted-2);border-radius:50%;animation:bob 1.2s infinite}
+  .typing span:nth-child(2){animation-delay:.15s}
+  .typing span:nth-child(3){animation-delay:.3s}
+  @keyframes bob{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-4px);opacity:1}}
+  @keyframes bubbleIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .bubble{animation:bubbleIn .45s cubic-bezier(.2,.7,.2,1) both}
+
+  /* ─── compact marquee ─── */
+  .marquee{
+    border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+    overflow:hidden;padding:14px 0;
+    background:linear-gradient(180deg,#0a0a0a,#060606);
+    position:relative;z-index:5;margin-top:30px
+  }
+  .marquee-track{display:flex;gap:36px;animation:marq 32s linear infinite;width:max-content;font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted-2)}
+  .marquee-track span{display:inline-flex;align-items:center;gap:36px}
+  .marquee-track span::after{content:"◆";color:var(--accent);font-size:.8em}
+  @keyframes marq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* ─── sections ─── */
+  section{position:relative;z-index:5}
+  .section{padding:clamp(70px,10vw,130px) 0}
+  .section-head{margin-bottom:48px;display:grid;gap:16px}
+
+  .reveal{opacity:0;transform:translateY(20px);transition:opacity .8s ease,transform .8s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+  .reveal-stagger > *{opacity:0;transform:translateY(20px);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1)}
+  .reveal-stagger.in > *{opacity:1;transform:none}
+  .reveal-stagger.in > *:nth-child(1){transition-delay:0s}
+  .reveal-stagger.in > *:nth-child(2){transition-delay:.08s}
+  .reveal-stagger.in > *:nth-child(3){transition-delay:.16s}
+  .reveal-stagger.in > *:nth-child(4){transition-delay:.24s}
+  .reveal-stagger.in > *:nth-child(5){transition-delay:.32s}
+
+  /* ─── problem ─── */
+  .questions{display:grid;gap:12px}
+  .q-card{
+    position:relative;border:1px solid var(--border);border-radius:16px;padding:28px clamp(22px,3vw,40px);
+    background:linear-gradient(180deg,#0d0d0d,#0a0a0a);
+    display:grid;grid-template-columns:54px 1fr auto;gap:18px;align-items:center;
+    overflow:hidden;transition:border-color .3s,transform .3s
+  }
+  .q-card::before{content:"";position:absolute;left:-1px;top:-1px;bottom:-1px;width:3px;background:var(--accent);transform:scaleY(0);transform-origin:top;transition:transform .5s}
+  .q-card.in::before{transform:scaleY(1)}
+  .q-card:hover{border-color:var(--border-2)}
+  @media (hover:hover){ .q-card:hover{transform:translateX(6px)} }
+  .q-num{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:.1em}
+  .q-text{font-family:var(--display);font-weight:600;font-size:clamp(18px,2.2vw,26px);line-height:1.2;letter-spacing:-.01em;text-wrap:balance}
+  .q-arrow{color:var(--muted-2);transition:color .25s,transform .25s}
+  .q-card:hover .q-arrow{color:var(--accent);transform:translateX(4px)}
+  @media (max-width:560px){ .q-card{grid-template-columns:1fr;gap:8px} .q-arrow{display:none} }
+  .q-closer{
+    margin-top:32px;padding:30px clamp(24px,3vw,42px);
+    border:1px solid rgba(201,242,62,.2);border-radius:14px;
+    background:linear-gradient(180deg,rgba(201,242,62,.05),rgba(201,242,62,.01));
+    font-family:var(--display);font-weight:600;
+    font-size:clamp(17px,2vw,24px);line-height:1.35;color:var(--text);max-width:780px;text-wrap:balance
+  }
+  .q-closer em{font-style:normal;color:var(--accent)}
+
+  /* ─── stats ─── */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media (max-width:880px){ .stats{grid-template-columns:1fr} }
+  .stat{
+    position:relative;padding:34px 28px;border:1px solid var(--border);border-radius:16px;
+    background:linear-gradient(180deg,#0d0d0d,#0a0a0a);
+    display:flex;flex-direction:column;gap:14px;overflow:hidden;
+    transition:transform .35s,border-color .3s
+  }
+  @media (hover:hover){ .stat:hover{transform:translateY(-4px);border-color:var(--border-2)} }
+  .stat-num{font-family:var(--display);font-weight:800;font-size:clamp(48px,6.5vw,84px);line-height:.9;letter-spacing:-.04em;color:var(--accent)}
+  .stat-num small{font-size:.4em;color:var(--text);font-weight:600;margin-left:4px}
+  .stat-text{font-size:14px;line-height:1.5;color:var(--text-2)}
+  .stat-source{margin-top:auto;font-family:var(--mono);font-size:10px;color:var(--muted-2);letter-spacing:.05em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  .stat-source::before{content:"";width:14px;height:1px;background:var(--muted-2)}
+
+  /* ─── solution: BIG dashboard split ─── */
+  .solution{display:grid;grid-template-columns:1fr;gap:14px}
+  @media (min-width:980px){ .solution{grid-template-columns:5fr 7fr} }
+  .sol-card{
+    position:relative;border:1px solid var(--border);border-radius:18px;padding:28px;
+    background:linear-gradient(180deg,#0d0d0d,#080808);
+    display:flex;flex-direction:column;gap:18px;overflow:hidden
+  }
+  .sol-tag{align-self:flex-start;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);padding:6px 10px;border:1px solid rgba(201,242,62,.3);border-radius:999px;background:rgba(201,242,62,.05)}
+  .sol-title{font-family:var(--display);font-weight:700;font-size:clamp(22px,2.4vw,30px);line-height:1.05;letter-spacing:-.015em;margin:0}
+  .sol-desc{font-size:14px;line-height:1.55;color:var(--text-2);margin:0}
+
+  /* report bullet inside bot card */
+  .report-list{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+  .report-row{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--text-2);line-height:1.45}
+  .report-row svg{flex:0 0 auto;color:var(--accent);margin-top:2px}
+
+  /* dashboard mock — bigger chart focus */
+  .dash{display:grid;grid-template-rows:auto 1fr auto;gap:14px;flex:1;min-height:520px}
+  .dash-bar{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:11px;color:var(--muted-2);padding:0 4px}
+  .dash-bar .dots{display:flex;gap:6px}
+  .dash-bar .dots span{width:9px;height:9px;border-radius:50%;background:var(--border-2)}
+  .chart-big{
+    background:#0a0a0a;border:1px solid var(--border);border-radius:14px;padding:22px;
+    display:flex;flex-direction:column;gap:14px;flex:1;position:relative;overflow:hidden
+  }
+  .chart-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+  .chart-head .title{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:-.01em;line-height:1.1}
+  .chart-head .sub{font-family:var(--mono);font-size:10px;color:var(--muted-2);letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
+  .chart-head .delta{font-family:var(--display);font-weight:700;font-size:32px;color:var(--accent);letter-spacing:-.02em;line-height:1}
+  .chart-head .delta small{display:block;font-family:var(--mono);font-size:10px;color:var(--muted-2);font-weight:400;letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+  .chart-svg{width:100%;flex:1;min-height:200px;display:block}
+  .chart-svg .line{stroke-dasharray:1000;stroke-dashoffset:1000}
+  .chart-svg.in .line{animation:draw 2.5s ease-out forwards}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  .chart-tooltip{
+    position:absolute;background:#161616;border:1px solid var(--border-2);
+    padding:8px 12px;border-radius:8px;font-family:var(--mono);font-size:11px;
+    color:var(--text);pointer-events:none;opacity:0;transform:translate(-50%,-110%);transition:opacity .2s
+  }
+  .chart-tooltip.show{opacity:1}
+  .chart-tooltip b{color:var(--accent)}
+
+  .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media (min-width:560px){ .kpis{grid-template-columns:repeat(4,1fr)} }
+  .kpi{background:#0a0a0a;border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden}
+  .kpi::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:100%;background:linear-gradient(90deg,var(--accent),transparent);transform:scaleX(0);transform-origin:left;animation:kpiBar 2.4s ease-in-out infinite}
+  .kpi:nth-child(2)::after{animation-delay:.6s}
+  .kpi:nth-child(3)::after{animation-delay:1.2s}
+  .kpi:nth-child(4)::after{animation-delay:1.8s}
+  @keyframes kpiBar{0%{transform:scaleX(0)}50%{transform:scaleX(1)}100%{transform:scaleX(0);transform-origin:right}}
+  .kpi .lbl{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-2)}
+  .kpi .val{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:-.02em;color:var(--text)}
+  .kpi .delta{font-size:11px;color:#8be041;font-family:var(--mono)}
+  .kpi.warn .delta{color:#e9b25a}
+
+  /* ─── steps ─── */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media (max-width:980px){ .steps{grid-template-columns:repeat(2,1fr)} }
+  @media (max-width:520px){ .steps{grid-template-columns:1fr} }
+  .step{
+    position:relative;background:linear-gradient(180deg,#0d0d0d,#080808);border:1px solid var(--border);border-radius:16px;
+    padding:24px;min-height:220px;display:flex;flex-direction:column;gap:12px;overflow:hidden;transition:transform .35s,border-color .3s
+  }
+  @media (hover:hover){ .step:hover{transform:translateY(-4px);border-color:var(--border-2)} }
+  .step .num{font-family:var(--display);font-weight:800;font-size:44px;color:var(--accent);opacity:.18;line-height:1;letter-spacing:-.04em;position:absolute;right:16px;top:14px}
+  .step .glyph{width:38px;height:38px;border:1px solid var(--border-2);border-radius:9px;display:grid;place-items:center;color:var(--text);background:#0c0c0c}
+  .step h3{font-family:var(--display);font-weight:700;font-size:18px;line-height:1.15;margin:0;letter-spacing:-.01em}
+  .step p{margin:0;font-size:13px;line-height:1.55;color:var(--text-2)}
+
+  /* ─── pricing ─── */
+  .pricing{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:760px){ .pricing{grid-template-columns:1fr} }
+  .plan{
+    position:relative;border:1px solid var(--border);border-radius:18px;padding:30px;
+    background:linear-gradient(180deg,#0d0d0d,#080808);
+    display:flex;flex-direction:column;gap:20px;overflow:hidden;transition:transform .35s
+  }
+  @media (hover:hover){ .plan:hover{transform:translateY(-4px)} }
+  .plan.recommended{border-color:rgba(201,242,62,.4);background:linear-gradient(180deg,#0f1106,#0a0a0a)}
+  .plan.recommended::before{content:"RECOMENDADO";position:absolute;top:18px;right:18px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;background:var(--accent);color:var(--accent-ink);padding:5px 9px;border-radius:4px;font-weight:500}
+  .plan-name{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:-.01em}
+  .plan-price{display:flex;align-items:baseline;gap:6px}
+  .plan-price .amount{font-family:var(--display);font-weight:800;font-size:54px;letter-spacing:-.04em;line-height:1}
+  .plan-price .currency{font-family:var(--mono);color:var(--muted-2);font-size:13px}
+  .plan-price .per{color:var(--muted-2);font-size:13px}
+  .plan-features{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--border);padding-top:18px}
+  .plan-features li{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--text)}
+  .plan-features svg{flex:0 0 auto;margin-top:3px;color:var(--accent)}
+  .plan-cta{margin-top:auto;padding:13px 18px;border-radius:999px;text-align:center;border:1px solid var(--border-2);font-size:14px;transition:all .2s}
+  .plan-cta:hover{border-color:var(--text)}
+  .plan.recommended .plan-cta{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .impl{margin-top:18px;border:1px dashed var(--border-2);border-radius:14px;padding:20px 24px;display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
+  .impl b{font-family:var(--display);font-weight:700;font-size:16px}
+  .impl small{color:var(--text-2);font-size:13px;display:block;margin-top:4px}
+  .impl .price{font-family:var(--mono);color:var(--accent);font-size:13px;letter-spacing:.04em}
+
+  /* ─── final cta ─── */
+  .cta{
+    text-align:center;padding:clamp(80px,11vw,140px) 0 100px;position:relative;
+    background:radial-gradient(900px 500px at 50% 0%,rgba(201,242,62,.1),transparent 70%)
+  }
+  .cta h2{margin:0 auto;max-width:18ch}
+  .cta-sub{margin:24px auto 0;max-width:50ch}
+  .cta-actions{display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:36px}
+  .cta-tg{font-size:13px;color:var(--text-2);font-family:var(--mono)}
+  .cta-tg b{color:var(--text);font-family:var(--mono)}
+  .urgency{margin:24px auto 0;display:inline-flex;align-items:center;gap:10px;padding:10px 16px;border-radius:999px;border:1px solid rgba(201,242,62,.3);background:rgba(201,242,62,.06);font-size:13px}
+  .urgency .pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(201,242,62,.6)}70%{box-shadow:0 0 0 12px rgba(201,242,62,0)}100%{box-shadow:0 0 0 0 rgba(201,242,62,0)}}
+  .outro-type{position:absolute;left:0;right:0;bottom:-20px;pointer-events:none;font-family:var(--display);font-weight:800;font-size:clamp(60px,16vw,220px);line-height:.85;letter-spacing:-.05em;color:transparent;-webkit-text-stroke:1px var(--border-2);text-align:center;white-space:nowrap;overflow:hidden;opacity:.7}
+
+  footer{
+    position:relative;z-index:5;border-top:1px solid var(--border);padding:24px var(--pad);
+    display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+    font-size:12px;color:var(--muted-2);font-family:var(--mono)
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+<div class="aurora"></div>
+<div class="cursor" id="cursor"><div class="ring"></div><div class="dot"></div></div>
+<div class="progress" id="progress"></div>
+
+<nav class="nav">
+  <a href="#top" class="logo">Gym<span class="os">OS</span></a>
+  <span class="div"></span>
+  <div class="links">
+    <a href="#problema">Problema</a>
+    <a href="#solucion">Solución</a>
+    <a href="#precios">Precios</a>
+  </div>
+  <a href="#cta" class="cta">Pedir demo →</a>
+</nav>
+
+<main id="top">
+
+<!-- ──────── HERO + CHAT ──────── -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">v1.0 — sistema operativo de tu gimnasio</span>
+      <h1 class="h-display" style="margin-top:18px">
+        <span class="word"><span>Tu</span></span>
+        <span class="word d1"><span>gimnasio</span></span>
+        <span class="word d2"><span>tiene</span></span>
+        <span class="word d3"><span>clientes.</span></span>
+        <br />
+        <span class="word d4"><span class="pop">¿Tiene control?</span></span>
+      </h1>
+      <p class="sub">Le escribís a un bot en Telegram como si fuera tu administradora. Te responde con datos reales, te avisa lo que importa, y te manda informes mensuales sin que los pidas.</p>
+      <div class="ctas">
+        <a class="btn btn-primary" href="#cta">Quiero verlo en acción <span class="arrow">→</span></a>
+        <a class="btn btn-ghost" href="#solucion">¿Cómo funciona?</a>
+      </div>
+      <div class="fine">
+        <span>Sin apps nuevas</span><span class="dot"></span>
+        <span>Sin capacitación</span><span class="dot"></span>
+        <span>Solo Telegram</span>
+      </div>
+    </div>
+
+    <div class="hero-phone">
+      <div class="hero-phone-tag"><span class="live-dot"></span>Así funciona · en vivo</div>
+      <div class="chat-head">
+        <div class="chat-avatar">OS</div>
+        <div class="chat-meta">
+          <div class="name">GymOS · bot</div>
+          <div class="stat-line">en línea · responde en 2s</div>
+        </div>
+      </div>
+      <div class="chat-body" id="heroChat"></div>
+    </div>
+  </div>
+</section>
+
+<!-- compact marquee -->
+<div class="marquee">
+  <div class="marquee-track">
+    <span>Un mensaje</span><span>Una respuesta</span><span>Un aviso</span><span>Cero Excel</span><span>Tu gimnasio bajo control</span>
+    <span>Un mensaje</span><span>Una respuesta</span><span>Un aviso</span><span>Cero Excel</span><span>Tu gimnasio bajo control</span>
+  </div>
+</div>
+
+<!-- ──────── PROBLEMA ──────── -->
+<section class="section" id="problema">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">01 · El problema</span>
+      <h2 class="h-section">Tres preguntas. <span class="accent">Respondelas honestamente.</span></h2>
+    </div>
+
+    <div class="questions reveal-stagger">
+      <div class="q-card">
+        <div class="q-num">01</div>
+        <div class="q-text">¿Sabés exactamente cuánto vas a cobrar el próximo mes?</div>
+        <div class="q-arrow">→</div>
+      </div>
+      <div class="q-card">
+        <div class="q-num">02</div>
+        <div class="q-text">¿Cuántos socios vencen esta semana y cuántos ya pagaron?</div>
+        <div class="q-arrow">→</div>
+      </div>
+      <div class="q-card">
+        <div class="q-num">03</div>
+        <div class="q-text">¿Cuánto ganó tu gimnasio el mes pasado, después de pagar sueldos y gastos?</div>
+        <div class="q-arrow">→</div>
+      </div>
+    </div>
+
+    <div class="q-closer reveal">
+      Si dudaste en alguna respuesta, <em>no es un problema de disciplina.</em> Es un problema de sistema.
+    </div>
+  </div>
+</section>
+
+<!-- ──────── STATS ──────── -->
+<section class="section" style="padding-top:0">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">02 · La industria</span>
+      <h2 class="h-section">No es solo tu gimnasio.<br/><span class="accent">Es toda la industria.</span></h2>
+    </div>
+
+    <div class="stats reveal-stagger">
+      <div class="stat">
+        <div class="stat-num"><span class="count" data-target="50">0</span><small>%</small></div>
+        <div class="stat-text">de los socios nuevos abandona el gimnasio en los primeros 6 meses, sin que nadie lo detecte a tiempo.</div>
+        <div class="stat-source">Glofox / IHRSA Global Report</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num"><span class="count" data-target="28">0</span><small>%</small></div>
+        <div class="stat-text">de los socios cancela su membresía cada año. Retenerlos cuesta 5 veces menos que conseguir nuevos.</div>
+        <div class="stat-source">IHRSA Member Retention Report</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">+<span class="count" data-target="33">0</span><small>%</small></div>
+        <div class="stat-text">menos cancelaciones en gimnasios que hacen 2 o más contactos al mes con sus socios.</div>
+        <div class="stat-source">Gym Rescue Industry Data</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────── SOLUCIÓN — bot + dashboard ──────── -->
+<section class="section" id="solucion" style="padding-top:0">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">03 · La solución</span>
+      <h2 class="h-section">Una conversación.<br/><span class="accent">Todo el negocio en una pantalla.</span></h2>
+    </div>
+
+    <div class="solution">
+      <!-- Bot card -->
+      <div class="sol-card reveal">
+        <span class="sol-tag">Bot · 90% del uso</span>
+        <h3 class="sol-title">Pregunta. Ejecuta. Avisa solo.</h3>
+        <p class="sol-desc">El bot vive en Telegram. Le hablás como a un empleado y responde con datos reales. Y todos los meses, te llega un informe sin que lo pidas.</p>
+        <div class="report-list">
+          <div class="report-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l5 5 11-12"/></svg><span><b style="color:var(--text)">Responde al instante</b> — "¿Quién no pagó?", "¿Cuánto ingresé hoy?"</span></div>
+          <div class="report-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l5 5 11-12"/></svg><span><b style="color:var(--text)">Avisa sin que preguntes</b> — vencimientos, ausencias, mantenimiento</span></div>
+          <div class="report-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l5 5 11-12"/></svg><span><b style="color:var(--text)">Reporte mensual automático</b> — el primero de cada mes en tu Telegram</span></div>
+        </div>
+      </div>
+
+      <!-- Dashboard card with BIG chart -->
+      <div class="sol-card reveal">
+        <span class="sol-tag">Dashboard · vista visual</span>
+        <h3 class="sol-title">El mes entero, en una sola línea.</h3>
+        <div class="dash">
+          <div class="dash-bar">
+            <div class="dots"><span></span><span></span><span></span></div>
+            <div>gymos.app · panel principal</div>
+          </div>
+          <div class="chart-big">
+            <div class="chart-head">
+              <div>
+                <div class="title">Ingresos · últimos 30 días</div>
+                <div class="sub">Bs. — diario · vs mes anterior</div>
+              </div>
+              <div class="delta">+12,4%<small>vs abril</small></div>
+            </div>
+            <svg class="chart-svg" id="chart" viewBox="0 0 600 240" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="grad" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#c9f23e" stop-opacity=".5" />
+                  <stop offset="100%" stop-color="#c9f23e" stop-opacity="0" />
+                </linearGradient>
+                <linearGradient id="grad2" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#c9f23e" stop-opacity="0" />
+                  <stop offset="100%" stop-color="#c9f23e" stop-opacity=".5" />
+                </linearGradient>
+              </defs>
+              <line x1="0" y1="60" x2="600" y2="60" stroke="#161616"/>
+              <line x1="0" y1="120" x2="600" y2="120" stroke="#161616"/>
+              <line x1="0" y1="180" x2="600" y2="180" stroke="#161616"/>
+              <!-- previous month, ghosted -->
+              <path d="M0,180 L40,170 L80,175 L120,160 L160,165 L200,150 L240,158 L280,140 L320,148 L360,132 L400,138 L440,122 L480,128 L520,115 L560,120 L600,108" fill="none" stroke="#3a3a3a" stroke-width="1.2" stroke-dasharray="4 4"/>
+              <!-- current month area -->
+              <path d="M0,200 L40,180 L80,184 L120,150 L160,158 L200,120 L240,138 L280,100 L320,118 L360,80 L400,92 L440,60 L480,72 L520,46 L560,52 L600,28 L600,240 L0,240 Z" fill="url(#grad)" />
+              <!-- current month line -->
+              <path class="line" d="M0,200 L40,180 L80,184 L120,150 L160,158 L200,120 L240,138 L280,100 L320,118 L360,80 L400,92 L440,60 L480,72 L520,46 L560,52 L600,28" fill="none" stroke="#c9f23e" stroke-width="2"/>
+              <circle cx="600" cy="28" r="5" fill="#c9f23e">
+                <animate attributeName="r" values="5;9;5" dur="1.8s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="600" cy="28" r="3" fill="#080808"/>
+            </svg>
+            <div class="chart-tooltip" id="chartTip"></div>
+          </div>
+          <div class="kpis">
+            <div class="kpi"><span class="lbl">Ingresos</span><span class="val">Bs. 18.450</span><span class="delta">▲ 12%</span></div>
+            <div class="kpi"><span class="lbl">Resultado</span><span class="val">Bs. 7.820</span><span class="delta">▲ 8%</span></div>
+            <div class="kpi"><span class="lbl">Socios</span><span class="val">214</span><span class="delta">+9</span></div>
+            <div class="kpi warn"><span class="lbl">Vencen</span><span class="val">17</span><span class="delta">esta semana</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────── PASOS ──────── -->
+<section class="section" style="padding-top:0">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">04 · Cómo funciona</span>
+      <h2 class="h-section">Cuatro pasos. <span class="accent">Cero fricción.</span></h2>
+    </div>
+
+    <div class="steps reveal-stagger">
+      <div class="step">
+        <div class="num">01</div>
+        <div class="glyph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 11.5a8.4 8.4 0 0 1-1 4 8.5 8.5 0 0 1-7.6 4.5 8.4 8.4 0 0 1-4-1L3 21l1-3.4a8.4 8.4 0 0 1-1-4 8.5 8.5 0 0 1 4.5-7.6 8.4 8.4 0 0 1 4-1h.5a8.5 8.5 0 0 1 8 8v.5z"/></svg></div>
+        <h3>Abrís Telegram y escribís</h3>
+        <p>No hay app nueva que aprender. Le hablás al bot como a tu administradora.</p>
+      </div>
+      <div class="step">
+        <div class="num">02</div>
+        <div class="glyph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 4v3M12 17v3M4 12h3M17 12h3M6.3 6.3l2 2M15.7 15.7l2 2M6.3 17.7l2-2M15.7 8.3l2-2"/></svg></div>
+        <h3>La IA entiende y ejecuta</h3>
+        <p>Interpreta el mensaje y actúa sobre la base de datos al instante.</p>
+      </div>
+      <div class="step">
+        <div class="num">03</div>
+        <div class="glyph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+        <h3>Te avisa solo</h3>
+        <p>Vencimientos, ausencias, mantenimiento — antes de que te enteres tarde.</p>
+      </div>
+      <div class="step">
+        <div class="num">04</div>
+        <div class="glyph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 14h6"/></svg></div>
+        <h3>Informe mensual</h3>
+        <p>El primero de cada mes te llega el resumen: ingresos, gastos, retención.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────── PRECIOS ──────── -->
+<section class="section" id="precios" style="padding-top:0">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">05 · Planes</span>
+      <h2 class="h-section">Dos planes. <span class="accent">Sin sorpresas.</span></h2>
+    </div>
+
+    <div class="pricing reveal-stagger">
+      <div class="plan">
+        <div>
+          <div class="plan-name">Esencial</div>
+          <div class="plan-price"><span class="currency">Bs.</span><span class="amount">500</span><span class="per">/mes</span></div>
+        </div>
+        <ul class="plan-features">
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l5 5 11-12"/></svg>Clientes y membresías — vencimientos, pagos</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l5 5 11-12"/></svg>Finanzas básica — ingresos y gastos del mes</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l5 5 11-12"/></svg>Bot reactivo y proactivo — responde y avisa</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l5 5 11-12"/></svg>Dashboard web — vista en tiempo real</li>
+        </ul>
+        <a href="#cta" class="plan-cta">Empezar con Esencial</a>
+      </div>
+
+      <div class="plan recommended">
+        <div>
+          <div class="plan-name">Completo</div>
+          <div class="plan-price"><span class="currency">Bs.</span><span class="amount">800</span><span class="per">/mes</span></div>
+        </div>
+        <ul class="plan-features">
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l5 5 11-12"/></svg><span><b>Todo lo del Esencial</b> + alertas avanzadas</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l5 5 11-12"/></svg>Personal y nómina — turnos, instructores, pagos</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l5 5 11-12"/></svg>Clases y equipamiento — ocupación, mantenimiento</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l5 5 11-12"/></svg>Reportes mensuales automáticos — sin pedirlo</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l5 5 11-12"/></svg>Alertas concretas — "La cinta 3 lleva 4 semanas sin revisión"</li>
+        </ul>
+        <a href="#cta" class="plan-cta">Empezar con Completo</a>
+      </div>
+    </div>
+
+    <div class="impl reveal">
+      <div>
+        <b>Implementación única — Bs. 1.500</b>
+        <small>Configuración completa, carga inicial de datos y acompañamiento los primeros 7 días.</small>
+      </div>
+      <div class="price">una sola vez · sin renovación</div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────── CTA FINAL ──────── -->
+<section class="cta" id="cta">
+  <div class="wrap">
+    <span class="eyebrow reveal">06 · Última parada</span>
+    <h2 class="h-display reveal" style="margin:22px 0 0">¿Querés verlo<br/><span class="accent">en tu gimnasio?</span></h2>
+    <p class="lead cta-sub reveal">Te muestro el sistema en vivo. Sin compromiso. Si no te resuelve el problema, te lo digo yo primero.</p>
+
+    <div class="cta-actions reveal">
+      <a class="btn btn-primary" href="https://wa.link/svx5c1" target="_blank" rel="noopener" style="font-size:16px;padding:18px 28px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 3.5A11.7 11.7 0 0 0 3.4 19l-1.4 5.1 5.2-1.4A11.7 11.7 0 1 0 20.5 3.5zm-8.5 18.1a9.6 9.6 0 0 1-4.9-1.3l-.4-.2-3.1.8.8-3-.2-.4A9.7 9.7 0 1 1 12 21.6zm5.6-7.3c-.3-.1-1.8-.9-2.1-1s-.5-.1-.7.1-.8 1-1 1.2-.4.2-.7 0a7.7 7.7 0 0 1-3.8-3.3c-.3-.5.3-.5.8-1.5a.5.5 0 0 0 0-.5l-1-2.4c-.3-.6-.5-.5-.7-.5h-.6a1.2 1.2 0 0 0-.9.4 3.6 3.6 0 0 0-1.1 2.7 6.3 6.3 0 0 0 1.3 3.3 14.3 14.3 0 0 0 5.5 4.9c.8.3 1.4.5 1.9.7a4.6 4.6 0 0 0 2.1.1 3.4 3.4 0 0 0 2.3-1.6 2.8 2.8 0 0 0 .2-1.6c-.1-.2-.3-.2-.6-.3z"/></svg>
+        Escribime por WhatsApp <span class="arrow">→</span>
+      </a>
+      <div class="urgency"><span class="pulse-dot"></span>Si confirmás en 5 días — el primer mes es gratis</div>
+    </div>
+  </div>
+  <div class="outro-type">GYMOS · GYMOS</div>
+</section>
+
+</main>
+
+<footer>
+  <div>GymOS · sistema de gestión para gimnasios · Bolivia</div>
+  <div>v1.0 · 2026</div>
+</footer>
+
+<script>
+  /* ─── canvas dot grid ─── */
+  const cv = document.getElementById('bg');
+  const ctx = cv.getContext('2d');
+  let dpr = Math.min(window.devicePixelRatio||1, 2), W=0, H=0;
+  let mouse = {x:-9999, y:-9999};
+  const isMobile = matchMedia('(max-width:760px)').matches;
+  function resize(){
+    W = cv.width = innerWidth*dpr;
+    H = cv.height = innerHeight*dpr;
+    cv.style.width = innerWidth+'px';
+    cv.style.height = innerHeight+'px';
+  }
+  resize();
+  addEventListener('resize', resize);
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const gap = (isMobile ? 44 : 36)*dpr;
+    const cols = Math.ceil(W/gap)+1;
+    const rows = Math.ceil(H/gap)+1;
+    const mx = mouse.x*dpr, my = mouse.y*dpr;
+    const t = performance.now()/1000;
+    const scrollY = window.scrollY;
+    for(let i=0;i<cols;i++){
+      for(let j=0;j<rows;j++){
+        const x = i*gap, y = j*gap + (Math.sin(t*0.4 + i*0.3)*2*dpr);
+        const dx = x-mx, dy = y-my;
+        const d = Math.hypot(dx,dy);
+        const radiusPx = (isMobile?160:220)*dpr;
+        const near = Math.max(0, 1 - d/radiusPx);
+        const wave = 0.5 + 0.5*Math.sin(t*0.6 + (i+j)*0.25);
+        const a = 0.05 + near*0.6 + wave*0.04;
+        const size = (1 + near*2.4)*dpr;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI*2);
+        ctx.fillStyle = near>0.05 ? `rgba(201,242,62,${a})` : `rgba(155,155,150,${0.07+wave*0.04})`;
+        ctx.fill();
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  /* ─── cursor + aurora ─── */
+  const cursor = document.getElementById('cursor');
+  let cx=innerWidth/2, cy=innerHeight/2, tx=cx, ty=cy;
+  addEventListener('mousemove', e=>{
+    mouse.x = e.clientX; mouse.y = e.clientY;
+    tx = e.clientX; ty = e.clientY;
+    document.documentElement.style.setProperty('--mx', (e.clientX/innerWidth*100)+'%');
+    document.documentElement.style.setProperty('--my', (e.clientY/innerHeight*100)+'%');
+  });
+  function animateCursor(){
+    cx += (tx-cx)*0.22; cy += (ty-cy)*0.22;
+    cursor.style.transform = `translate(${cx}px, ${cy}px)`;
+    requestAnimationFrame(animateCursor);
+  }
+  animateCursor();
+  document.querySelectorAll('a, button, .q-card, .stat, .sol-card, .step, .plan').forEach(el=>{
+    el.addEventListener('mouseenter', ()=>cursor.classList.add('hover'));
+    el.addEventListener('mouseleave', ()=>cursor.classList.remove('hover'));
+  });
+
+  /* ─── progress + scroll var ─── */
+  const prog = document.getElementById('progress');
+  function onScroll(){
+    const max = document.body.scrollHeight - innerHeight;
+    const p = Math.min(1, Math.max(0, scrollY/max));
+    prog.style.width = (p*100)+'%';
+    document.documentElement.style.setProperty('--scroll', p);
+  }
+  addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+
+  /* ─── reveal on scroll (mobile-friendly) ─── */
+  const io = new IntersectionObserver(es=>{
+    es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, {rootMargin:'0px 0px -6% 0px', threshold:.08});
+  document.querySelectorAll('.reveal, .reveal-stagger, .q-card').forEach(el=>io.observe(el));
+
+  /* ─── count up ─── */
+  const cio = new IntersectionObserver(es=>{
+    es.forEach(e=>{
+      if(e.isIntersecting){
+        const el = e.target;
+        const target = parseInt(el.dataset.target,10);
+        const dur = 1400, t0 = performance.now();
+        function tick(t){
+          const k = Math.min(1, (t-t0)/dur);
+          const eased = 1 - Math.pow(1-k, 3);
+          el.textContent = Math.round(target*eased);
+          if(k<1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+        cio.unobserve(el);
+      }
+    });
+  }, {threshold:.5});
+  document.querySelectorAll('.count').forEach(el=>cio.observe(el));
+
+  /* ─── chart line draw on view ─── */
+  const chart = document.getElementById('chart');
+  const chartIo = new IntersectionObserver(es=>{
+    es.forEach(e=>{ if(e.isIntersecting){ chart.classList.add('in'); chartIo.unobserve(chart); } });
+  }, {threshold:.4});
+  if(chart) chartIo.observe(chart);
+
+  /* ─── tilt cards (desktop only) ─── */
+  if(matchMedia('(hover:hover) and (min-width:900px)').matches){
+    document.querySelectorAll('.sol-card, .stat, .plan, .step').forEach(card=>{
+      card.addEventListener('mousemove', e=>{
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX-r.left)/r.width - .5;
+        const y = (e.clientY-r.top)/r.height - .5;
+        card.style.transform = `translateY(-4px) perspective(900px) rotateX(${y*-2.5}deg) rotateY(${x*2.5}deg)`;
+      });
+      card.addEventListener('mouseleave', ()=>{ card.style.transform=''; });
+    });
+  }
+
+  /* ─── HERO chat: looping conversation ─── */
+  const heroChat = document.getElementById('heroChat');
+  const wait = ms=>new Promise(r=>setTimeout(r,ms));
+  function bub(side, html, alert=false){
+    const b = document.createElement('div');
+    b.className = 'bubble ' + side + (alert?' alert':'');
+    b.innerHTML = html;
+    return b;
+  }
+  function tip(){
+    const t = document.createElement('div');
+    t.className = 'typing';
+    t.innerHTML = '<span></span><span></span><span></span>';
+    return t;
+  }
+  const heroScript = [
+    {t:'me', html:"¿Quién no pagó este mes?"},
+    {t:'bot', think:900, html:`
+      <div class="label">Morosos · enero</div>
+      <div class="row"><span>Ana Quispe</span><b>Bs. 200</b></div>
+      <div class="row"><span>Marco Vega</span><b>Bs. 350</b></div>
+      <div class="row"><span>Lucía Mamani</span><b>Bs. 200</b></div>
+      <div class="meta-line">3 socios · total Bs. 750</div>
+    `, after:1300},
+    {t:'bot', think:600, alert:true, html:`
+      <div class="label">Aviso automático</div>
+      <strong>Ana Quispe</strong> vence mañana — plan mensual <b>Bs. 200</b>.
+    `, after:1600},
+    {t:'bot', think:600, alert:true, html:`
+      <div class="label">Aviso automático</div>
+      <strong>3 socios</strong> llevan 2 semanas sin asistir. ¿Les escribo?
+    `, after:2400},
+  ];
+  async function playHero(){
+    while(true){
+      heroChat.innerHTML = '';
+      for(const s of heroScript){
+        if(s.t === 'me'){
+          heroChat.appendChild(bub('me', s.html));
+        } else {
+          const tp = tip(); heroChat.appendChild(tp);
+          await wait(s.think || 700);
+          tp.remove();
+          heroChat.appendChild(bub('bot', s.html, s.alert));
+        }
+        await wait(s.after || 700);
+      }
+      await wait(1600);
+      heroChat.style.transition = 'opacity .5s';
+      heroChat.style.opacity = '0';
+      await wait(500);
+      heroChat.style.opacity = '1';
+    }
+  }
+  playHero();
+
+  /* ─── chart tooltip on hover ─── */
+  const tt = document.getElementById('chartTip');
+  if(chart){
+    const days = 30, dataValues = [400,520,500,720,680,940,820,1080,920,1200,1140,1320,1240,1420,1350];
+    chart.addEventListener('mousemove', e=>{
+      const r = chart.getBoundingClientRect();
+      const x = (e.clientX - r.left)/r.width;
+      const dayIdx = Math.min(days-1, Math.max(0, Math.floor(x*days)));
+      const v = 400 + Math.round(900*x + Math.sin(x*8)*60);
+      tt.style.left = (e.clientX - r.left)+'px';
+      tt.style.top = (e.clientY - r.top)+'px';
+      tt.innerHTML = `Día ${dayIdx+1} · <b>Bs. ${v}</b>`;
+      tt.classList.add('show');
+    });
+    chart.addEventListener('mouseleave', ()=>tt.classList.remove('show'));
+  }
+</script>
+</body>
+</html>
